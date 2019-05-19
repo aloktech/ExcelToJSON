@@ -1,0 +1,28 @@
+{
+    "sample1": "Dummy",
+    "sample6": {
+        "sample61": "Dummy",
+        "sample62": {
+            "sample622": {
+                "sample6221": "Dummy",
+                "sample6222": "Dummy"
+            },
+            "sample623": "Dummy",
+            "sample621": "Dummy"
+        },
+        "sample63": "Dummy"
+    },
+    "sample5": [],
+    "sample4": [
+        "Alok",
+        "Ranjan"
+    ],
+    "sample3": [
+        12123,
+        123123
+    ],
+    "sample2": [
+        {"sample21": "Dummy"},
+        {"sample22": "Dummy"}
+    ]
+}

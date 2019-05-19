@@ -93,8 +93,8 @@ public class ExcelToJSON {
             } else {
                 jsonFileName = "src/main/resources/testResult.json";
                 jsonFileName = checkFileExist(jsonFileName);
-
             }
+            System.out.println(result.toString(4));
             try {
                 Files.write(Paths.get(jsonFileName), result.toString(4).getBytes(),
                         StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);

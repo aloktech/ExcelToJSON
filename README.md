@@ -12,8 +12,9 @@ or<br/>
 **java -jar ExcelToJSON-jar-with-dependencies.jar "SampleData.xlsx:Testcase4" testResult1.json** <br/>
 where **SampleData.xlsx** is the Excel file and **Testcase1** is the Sheet name <br/><br/>
 
-Sample Excel Data <br/>
-[Sample Excel Data](docs/Excel File data.png)
+**Input Sample Excel Data** <br/>
+![Sample Excel Data](docs/new_image.png)<br/>
+**Output Sample JSON Data**
 ```
 {
     "sample1": {

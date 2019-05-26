@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package com.imos.etj;
 
 import java.io.File;
@@ -27,7 +22,7 @@ public class ExcelToJSON {
     private static String excelFileName;
     private static String excelSheetName;
     private static String jsonFileName;
-    private final static boolean PROD_MODE = true;
+    private final static boolean PROD_MODE = false;
 
     public static void main(String[] args) throws IOException {
         if (checkInputs(args)) {
@@ -79,12 +74,17 @@ public class ExcelToJSON {
             excelSheetName = "Testcase2";
             excelSheetName = "Testcase3";
             excelSheetName = "Testcase4";
+            excelSheetName = "Testcase5";
+            excelSheetName = "Testcase6";
+            excelSheetName = "Testcase7";
             jsonFileName = "testResult.json";
         }
+        
+        ExcelDataExtractor excelDataExtractor = new ExcelDataExtractor();
+        excelDataExtractor.collectDataFromExcelFile(excelFileName, excelSheetName);
+        
         JSONGenerator generator = new JSONGenerator();
-        generator.collectFromExcelFile(excelFileName, excelSheetName);
-
-        JSONTreeNode root = generator.setJSONValue();
+        JSONTreeNode root = generator.setJSONValue(excelDataExtractor.getJSONKeyValueMap());
         if (root.getValue() == null) {
             JSONObject result = new JSONObject();
             generator.buildJSONObject(root, result, null);

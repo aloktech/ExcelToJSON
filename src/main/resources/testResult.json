@@ -1,28 +1,37 @@
 {
-    "sample1": "Dummy",
-    "sample6": {
-        "sample61": "Dummy",
-        "sample62": {
-            "sample622": {
-                "sample6221": "Dummy",
-                "sample6222": "Dummy"
-            },
-            "sample623": "Dummy",
-            "sample621": "Dummy"
+    "sample1": {
+        "sample11": 1,
+        "sample12": {
+            "sample121": "Dummy",
+            "sample122": "Dummy"
         },
-        "sample63": "Dummy"
+        "sample13": "Dummy"
     },
-    "sample5": [],
-    "sample4": [
-        "Alok",
-        "Ranjan"
-    ],
-    "sample3": [
-        12123,
-        123123
-    ],
-    "sample2": [
-        {"sample21": "Dummy"},
-        {"sample22": "Dummy"}
-    ]
+    "sample7": {
+        "sample73": {
+            "sample732": "Dummy",
+            "sample733": {
+                "sample7331": 2.3,
+                "sample7332": 3.4
+            },
+            "sample731": "Dummy"
+        },
+        "sample734": [
+            34535335335,
+            67555765757
+        ]
+    },
+    "sample6": {
+        "sample61": "Alok",
+        "sample63": 10,
+        "sample64": "05/05/19"
+    },
+    "sample5": "Dummy",
+    "sample4": [{
+        "sample41": 1,
+        "sample42": 2,
+        "sample43": 3
+    }],
+    "sample3": "Dummy",
+    "sample2": "Dummy"
 }

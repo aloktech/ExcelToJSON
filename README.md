@@ -18,17 +18,29 @@ where **SampleData.xlsx** is the Excel file and **Testcase1** is the Sheet name 
 ```
 {
     "sample1": {
-        "sample11": 6786868,
+        "sample11": 678689,
         "sample12": {
-            "sample121": "Manish",
-            "sample122": "Dua"
+            "sample121": "Hello",
+            "sample122": "Bhai"
         },
         "sample13": true
     },
-    "sample3": "Testing",
     "sample2": [
-        12312,
-        123
-    ]
+        1212,
+        12312
+    ],
+    "sample3": [
+        "Hello",
+        "World"
+    ],
+    "sample4": [{
+        "Testing1": "Dummy",
+        "Testing2": "Dummy"
+    }],
+    "sample5": [
+        true,
+        false,
+        false
+    ]    
 }
 ```

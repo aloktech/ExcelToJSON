@@ -72,23 +72,23 @@ public class ExcelDataExtractor {
                                     if (null != parentType) {
                                         switch (parentType) {
                                             case ARRAY_VALUE:
-                                                KEY_MAP.put(keyValue, new JSONData(
+                                                KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
                                                         JSONDataType.VALUE, JSONValueType.ARRAY,
                                                         keyValue, keyValue, parentKey, setParentType()));
                                                 break;
                                             case ARRAY_OBJECT:
-                                                KEY_MAP.put(keyValue, new JSONData(
+                                                KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
                                                         JSONDataType.VALUE, JSONValueType.ARRAY,
                                                         "Dummy", keyValue, parentKey, setParentType()));
                                                 break;
                                             case OBJECT:
-                                                KEY_MAP.put(keyValue, new JSONData(
+                                                KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
                                                         JSONDataType.VALUE, JSONValueType.STRING,
                                                         "Dummy", keyValue, parentKey, setParentType()));
                                                 break;
                                         }
                                     } else {
-                                        KEY_MAP.put(keyValue, new JSONData(
+                                        KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
                                                 JSONDataType.VALUE, JSONValueType.STRING,
                                                 "Dummy", keyValue, parentKey, setParentType()));
                                     }
@@ -104,14 +104,15 @@ public class ExcelDataExtractor {
                             booleanValue = cell.getBooleanCellValue();
                             if (keyValue == null) {
                                 keyValue = parentKey;
-                                KEY_MAP.put(String.valueOf(booleanValue) + ":" + booleanRowIndex, new JSONData(
+                                KEY_MAP.put(getKeyValue(KEY_MAP, keyValue, booleanRowIndex), new JSONData(
                                         JSONDataType.VALUE, JSONValueType.BOOLEAN,
                                         booleanValue, keyValue, parentKey, setParentType()));
                                 booleanRowIndex++;
                             } else {
-                                KEY_MAP.put(keyValue, new JSONData(
+                                KEY_MAP.put(getKeyValue(KEY_MAP, keyValue, booleanRowIndex), new JSONData(
                                         JSONDataType.VALUE, JSONValueType.BOOLEAN,
                                         booleanValue, keyValue, parentKey, setParentType()));
+                                booleanRowIndex++;
                             }
                             break;
                         case NUMERIC:
@@ -130,6 +131,31 @@ public class ExcelDataExtractor {
         }
     }
 
+    private static String getKeyValue(Map<String, JSONData> KEY_MAP, String keyValue) {
+        String key = keyValue;
+        while (KEY_MAP.containsKey(key)) {
+            key = key + "a";
+        }
+        return key;
+    }
+
+    private static String getKeyValue(Map<String, JSONData> KEY_MAP, Number keyValue, String defaultValue) {
+        String keyValueStr = keyValue == null ? defaultValue : "" + keyValue;
+        String key = keyValueStr;
+        while (KEY_MAP.containsKey(key)) {
+            key = key + "a";
+        }
+        return key;
+    }
+
+    private static String getKeyValue(Map<String, JSONData> KEY_MAP, String keyValue, int index) {
+        String key = keyValue + ":" + index;
+        while (KEY_MAP.containsKey(key)) {
+            key = key + "a";
+        }
+        return key;
+    }
+
     private JSONDataType setParentType() {
         return PARENT_TYPES.isEmpty() ? null : PARENT_TYPES.peek();
     }
@@ -140,24 +166,24 @@ public class ExcelDataExtractor {
         double doubleValue;
         try {
             intValue = Integer.parseInt(strData);
-            KEY_MAP.put(keyValue == null ? strData : keyValue, new JSONData(
+            KEY_MAP.put(getKeyValue(KEY_MAP, intValue, strData), new JSONData(
                     JSONDataType.VALUE, JSONValueType.INTEGER,
                     intValue, keyValue, parentKey, setParentType()));
         } catch (NumberFormatException e1) {
             try {
                 longValue = Long.parseLong(strData);
-                KEY_MAP.put(keyValue == null ? strData : keyValue, new JSONData(
+                KEY_MAP.put(getKeyValue(KEY_MAP, longValue, strData), new JSONData(
                         JSONDataType.VALUE, JSONValueType.LONG,
                         longValue, keyValue, parentKey, setParentType()));
                 if (HSSFDateUtil.isCellDateFormatted(cell)) {
-                    KEY_MAP.put(keyValue, new JSONData(
+                    KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
                             JSONDataType.VALUE, JSONValueType.DATE,
                             longValue, keyValue, parentKey, setParentType()));
                 }
             } catch (NumberFormatException e2) {
                 try {
                     doubleValue = Double.parseDouble(strData);
-                    KEY_MAP.put(keyValue == null ? strData : keyValue, new JSONData(
+                    KEY_MAP.put(getKeyValue(KEY_MAP, doubleValue, strData), new JSONData(
                             JSONDataType.VALUE, JSONValueType.DOUBLE,
                             doubleValue, keyValue, parentKey, setParentType()));
                 } catch (NumberFormatException e3) {
@@ -172,21 +198,21 @@ public class ExcelDataExtractor {
     private void collectStringValue(Cell cell, String keyValue, String parentKey) {
         String stringValue = cell.getStringCellValue();
         if (null == stringValue) {
-            KEY_MAP.put(keyValue, new JSONData(
+            KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
                     JSONDataType.VALUE, JSONValueType.STRING,
                     stringValue, keyValue, parentKey, setParentType()));
         } else {
             switch (stringValue) {
                 case "{":
                     PARENT_KEYS.push(keyValue);
-                    KEY_MAP.put(keyValue, new JSONData(
+                    KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
                             JSONDataType.OBJECT, JSONValueType.OBJECT,
                             null, keyValue, parentKey, setParentType()));
                     PARENT_TYPES.push(JSONDataType.OBJECT);
                     break;
                 case "[{":
                     PARENT_KEYS.push(keyValue);
-                    KEY_MAP.put(keyValue, new JSONData(
+                    KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
                             JSONDataType.ARRAY_OBJECT, JSONValueType.ARRAY,
                             null, keyValue, parentKey, setParentType()));
                     PARENT_TYPES.push(JSONDataType.ARRAY_OBJECT);
@@ -194,13 +220,13 @@ public class ExcelDataExtractor {
                 case "[":
                     booleanRowIndex = 0;
                     PARENT_KEYS.push(keyValue);
-                    KEY_MAP.put(keyValue, new JSONData(
+                    KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
                             JSONDataType.ARRAY_VALUE, JSONValueType.ARRAY,
                             null, keyValue, parentKey, setParentType()));
                     PARENT_TYPES.push(JSONDataType.ARRAY_VALUE);
                     break;
                 default:
-                    KEY_MAP.put(keyValue, new JSONData(
+                    KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
                             JSONDataType.VALUE, JSONValueType.STRING,
                             stringValue, keyValue, parentKey, setParentType()));
                     break;

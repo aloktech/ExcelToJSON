@@ -2,10 +2,12 @@ package com.imos.etj;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.OpenOption;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.LinkedHashMap;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -22,7 +24,7 @@ public class ExcelToJSON {
     private static String excelFileName;
     private static String excelSheetName;
     private static String jsonFileName;
-    private final static boolean PROD_MODE = true;
+    private final static boolean PROD_MODE = false;
 
     public static void main(String[] args) throws IOException {
         if (checkInputs(args)) {
@@ -76,7 +78,7 @@ public class ExcelToJSON {
             excelSheetName = "Testcase4";
             excelSheetName = "Testcase5";
             excelSheetName = "Testcase6";
-            excelSheetName = "Testcase7";
+//            excelSheetName = "Testcase7";
             jsonFileName = "testResult.json";
         }
         
@@ -87,6 +89,7 @@ public class ExcelToJSON {
         JSONTreeNode root = generator.setJSONValue(excelDataExtractor.getJSONKeyValueMap());
         if (root.getValue() == null) {
             JSONObject result = new JSONObject();
+            setMapAsLinkedListMap(result);
             generator.buildJSONObject(root, result, null);
             if (PROD_MODE) {
                 jsonFileName = checkFileExist(jsonFileName);
@@ -112,4 +115,14 @@ public class ExcelToJSON {
         return fileName;
     }
 
+      private void setMapAsLinkedListMap(JSONObject json) {
+        try {
+            Field map = json.getClass().getDeclaredField("map");
+            map.setAccessible(true);//because the field is private final...
+            map.set(json, new LinkedHashMap<>());
+            map.setAccessible(false);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }

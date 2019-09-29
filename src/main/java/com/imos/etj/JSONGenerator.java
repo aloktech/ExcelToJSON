@@ -1,5 +1,6 @@
 package com.imos.etj;
 
+import java.lang.reflect.Field;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -14,9 +15,7 @@ import org.json.JSONObject;
  */
 public class JSONGenerator {
 
-    private static final Stack<Object> PARENT_OBJECT = new Stack<>();
     private static final Stack<String> PARENT_KEYS = new Stack<>();
-    private static final Stack<JSONDataType> PARENT_TYPES = new Stack<>();
 
     private static Map<String, JSONData> KEY_MAP = new LinkedHashMap<>();
 
@@ -34,7 +33,6 @@ public class JSONGenerator {
     }
 
     public void buildJSONObject(JSONTreeNode root, JSONObject jsonResult, JSONArray arrayResult) throws JSONException {
-//        JSONDataType parentType = JSONDataType.ARRAY_OBJECT;
         JSONArray parentArray = new JSONArray();
         JSONObject parentJson = new JSONObject();
         for (JSONTreeNode node : root.getChildren()) {
@@ -65,7 +63,7 @@ public class JSONGenerator {
                         break;
                     case OBJECT:
                         JSONObject json = new JSONObject();
-                        PARENT_TYPES.add(JSONDataType.OBJECT);
+                        setMapAsLinkedListMap(json);
                         jsonResult.put(jsonData.getKey(), json);
                         if (!node.getChildren().isEmpty()) {
                             buildJSONObject(node, json, arrayResult);
@@ -74,8 +72,8 @@ public class JSONGenerator {
                     case ARRAY_OBJECT:
                         JSONArray jsonArrayObject = new JSONArray();
                         JSONObject jsonObject = new JSONObject();
+                        setMapAsLinkedListMap(jsonObject);
                         jsonArrayObject.put(jsonObject);
-                        PARENT_TYPES.add(JSONDataType.ARRAY_OBJECT);
                         jsonResult.put(jsonData.getKey(), jsonArrayObject);
                         if (!node.getChildren().isEmpty()) {
                             buildJSONObject(node, jsonObject, jsonArrayObject);
@@ -83,7 +81,6 @@ public class JSONGenerator {
                         break;
                     case ARRAY_VALUE:
                         JSONArray jsonArrayValue = new JSONArray();
-                        PARENT_TYPES.add(JSONDataType.ARRAY_VALUE);
                         jsonResult.put(jsonData.getKey(), jsonArrayValue);
                         if (!node.getChildren().isEmpty()) {
                             buildJSONObject(node, jsonResult, jsonArrayValue);
@@ -99,6 +96,17 @@ public class JSONGenerator {
             parentArray.put(parentJson);
             root.getValue().getKey();
             root.getValue().setData(parentArray);
+        }
+    }
+
+    private void setMapAsLinkedListMap(JSONObject json) {
+        try {
+            Field map = json.getClass().getDeclaredField("map");
+            map.setAccessible(true);//because the field is private final...
+            map.set(json, new LinkedHashMap<>());
+            map.setAccessible(false);
+        } catch (IllegalAccessException | IllegalArgumentException | NoSuchFieldException | SecurityException e) {
+            e.printStackTrace();
         }
     }
 

@@ -1,15 +1,12 @@
 # ExcelToJSON
 
-Its a tool to generate a JSON file from Excel data.
+Its a java tool to generate a JSON file from Excel data.
 
-
-- Clone the project
-- Build the project in maven(mvn clean install)
-- Copy the file **ExcelToJSON-jar-with-dependencies.jar** from target folder to a folder
-- In the console enter: **java -jar ExcelToJSON-jar-with-dependencies.jar**, then you will see <br/>
+- Install JDK 8/higher or check JDK 8/higher is installed
+- Download the jar file **ExcelToJSON.jar** to a folder
+- In the console enter: **java -jar ExcelToJSON.jar**, and press enter, then you will see <br/>
 Enter : &lt;Excel File Name&gt;:&lt;Excel Sheet Name&gt; &lt;JSON File name&gt; <br/>
-or<br/>
-**java -jar ExcelToJSON-jar-with-dependencies.jar "SampleData.xlsx:Testcase4" testResult1.json** <br/>
+**i.e java -jar ExcelToJSON.jar "SampleData.xlsx:Testcase4" testResult1.json** <br/>
 where **SampleData.xlsx** is the Excel file and **Testcase1** is the Sheet name <br/><br/>
 
 **Input Sample Excel Data** <br/>
@@ -17,30 +14,39 @@ where **SampleData.xlsx** is the Excel file and **Testcase1** is the Sheet name 
 **Output Sample JSON Data**
 ```
 {
-    "sample1": {
-        "sample11": 678689,
-        "sample12": {
-            "sample121": "Hello",
-            "sample122": "Bhai"
-        },
-        "sample13": true
+    "key0": "value",
+    "key1": "",
+    "key2": {"value21": "value"},
+    "key3": ["value31"],
+    "key4": {
+        "key41": {"value411": "value"},
+        "key42": "value"
     },
-    "sample2": [
-        1212,
-        12312
+    "key5": [{"value51": "value"}],
+    "key6": [
+        1,
+        2
     ],
-    "sample3": [
-        "Hello",
-        "World"
-    ],
-    "sample4": [{
-        "Testing1": "Dummy",
-        "Testing2": "Dummy"
-    }],
-    "sample5": [
+    "key7": [
         true,
-        false,
         false
-    ]    
+    ],
+    "key8": [
+        {
+            "key81": "value",
+            "key82": true,
+            "key83": 23.56,
+            "key84": "value"
+        },
+        {
+            "key81": "value",
+            "key82": true,
+            "key83": 23.56,
+            "key84": "value"
+        }
+    ],
+    "key9": "value",
+    "key10": [1.2],
+    "key11": "value"
 }
 ```

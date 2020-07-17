@@ -1,13 +1,12 @@
 package com.imos.etj;
 
+import java.io.Console;
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.OpenOption;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.LinkedHashMap;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -20,90 +19,87 @@ public class ExcelToJSON {
     public static final OpenOption[] OPEN_OPTION = new OpenOption[]{
         StandardOpenOption.CREATE,
         StandardOpenOption.TRUNCATE_EXISTING};
+    public static boolean PROD_MODE = false;
 
-    private static String excelFileName;
-    private static String excelSheetName;
-    private static String jsonFileName;
-    private final static boolean PROD_MODE = true;
+    private String excelFileName;
+    private String excelSheetName;
+    private String jsonFileName;
+    private JSONObject result;
 
     public static void main(String[] args) throws IOException {
-        if (checkInputs(args)) {
-            return;
+        Console console = System.console();
+        if (console != null) {
+            PROD_MODE = true;
         }
-        new ExcelToJSON().buildJSON();
+        new ExcelToJSON()
+                .checkInputs(args)
+                .generateJSONData()
+                .writeToFile();
     }
 
-    private static boolean checkInputs(String[] args) {
+    public ExcelToJSON() {
+        this(null, null, null);
+    }
+
+    public ExcelToJSON(String excelFileName, String excelSheetName) {
+        this(excelFileName, excelSheetName, null);
+    }
+
+    public ExcelToJSON(String excelFileName, String excelSheetName, String jsonFileName) {
+        this.excelFileName = excelFileName;
+        this.excelSheetName = excelSheetName;
+        this.jsonFileName = jsonFileName;
+    }
+
+    public ExcelToJSON checkInputs(String[] args) {
         if (PROD_MODE) {
             if (args.length != 2) {
                 System.out.println("Enter : <Excel File Name>:<Excel Sheet Name> <JSON File name>");
-                return true;
             } else {
                 if (!args[0].contains(":")) {
                     System.out.println("Enter : <Excel File Name>:<Excel Sheet Name> <JSON File name>");
-                    return true;
                 }
                 String[] data = args[0].split(":");
                 String excelFileNameTemp = data[0].trim();
                 if (!excelFileNameTemp.endsWith(".xlsx")) {
                     System.out.println("Enter : <Excel File Name>:<Excel Sheet Name> <JSON File name>");
-                    return true;
                 }
                 String excelSheetNameTemp = data[1].trim();
                 if (excelSheetNameTemp.isEmpty()) {
                     System.out.println("Enter : <Excel File Name>:<Excel Sheet Name> <JSON File name>");
-                    return true;
                 }
                 excelFileName = excelFileNameTemp;
                 excelSheetName = excelSheetNameTemp;
                 String jsonFileNameTemp = args[1].trim();
                 if (!jsonFileNameTemp.endsWith(".json")) {
                     System.out.println("Enter : <Excel File Name>:<Excel Sheet Name> <JSON File name>");
-                    return true;
                 }
                 jsonFileName = jsonFileNameTemp;
             }
         }
-        return false;
+        return this;
     }
 
-    private void buildJSON() {
+    protected ExcelToJSON generateJSONData() {
         if (PROD_MODE) {
             excelFileName = checkFileExist(excelFileName);
-        } else {
-            excelFileName = "src/main/resources/SampleData.xlsx";
-            excelSheetName = "Testcase1";
-            excelSheetName = "Testcase2";
-            excelSheetName = "Testcase3";
-            excelSheetName = "Testcase4";
-            excelSheetName = "Testcase5";
-            excelSheetName = "Testcase6";
-//            excelSheetName = "Testcase7";
-            jsonFileName = "testResult.json";
         }
-        
+
         ExcelDataExtractor excelDataExtractor = new ExcelDataExtractor();
-        excelDataExtractor.collectDataFromExcelFile(excelFileName, excelSheetName);
-        
-        JSONGenerator generator = new JSONGenerator();
-        JSONTreeNode root = generator.setJSONValue(excelDataExtractor.getJSONKeyValueMap());
-        if (root.getValue() == null) {
-            JSONObject result = new JSONObject();
-            setMapAsLinkedListMap(result);
-            generator.buildJSONObject(root, result, null);
-            if (PROD_MODE) {
-                jsonFileName = checkFileExist(jsonFileName);
-            } else {
-                jsonFileName = "src/main/resources/testResult.json";
-                jsonFileName = checkFileExist(jsonFileName);
-            }
-            System.out.println(result.toString(4));
-            try {
-                Files.write(Paths.get(jsonFileName), result.toString(4).getBytes(),
-                        StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
-            } catch (IOException | JSONException e) {
-                e.printStackTrace();
-            }
+        result = excelDataExtractor.generateJSONDataFromExcelFile(excelFileName, excelSheetName);
+        System.out.println(result.toString(4));
+        return this;
+    }
+
+    protected void writeToFile() {
+        if (jsonFileName == null) {
+            return;
+        }
+        try {
+            Files.write(Paths.get(jsonFileName), result.toString(4).getBytes(),
+                    StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
+        } catch (IOException | JSONException e) {
+            e.printStackTrace();
         }
     }
 
@@ -113,16 +109,5 @@ public class ExcelToJSON {
             fileName = System.getProperty("user.dir") + File.separator + fileName;
         }
         return fileName;
-    }
-
-      private void setMapAsLinkedListMap(JSONObject json) {
-        try {
-            Field map = json.getClass().getDeclaredField("map");
-            map.setAccessible(true);//because the field is private final...
-            map.set(json, new LinkedHashMap<>());
-            map.setAccessible(false);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 }

@@ -4,238 +4,306 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Stack;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import org.apache.poi.hssf.usermodel.HSSFDateUtil;
+import lombok.extern.log4j.Log4j2;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
-import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 /**
  *
  * @author p
  */
+@Log4j2
 public class ExcelDataExtractor {
 
-    private static final Stack<String> PARENT_KEYS = new Stack<>();
-    private static final Stack<JSONDataType> PARENT_TYPES = new Stack<>();
+    private int rowCount;
+    private int rowIndex;
+    private int colIndex;
+    private boolean forJSONArray;
+    private Stack<String> stack;
 
-    private final Map<String, JSONData> KEY_MAP = new LinkedHashMap<>();
-
-    int booleanRowIndex = 0;
-
-    public void collectDataFromExcelFile(String excelFilePath, String sheetName) {
+    public JSONObject generateJSONDataFromExcelFile(String excelFilePath, String sheetName) {
+        stack = new Stack<>();
         try (InputStream excelFile = new FileInputStream(excelFilePath);
                 Workbook workbook = WorkbookFactory.create(excelFile)) {
             Sheet sheet = workbook.getSheet(sheetName);
-            int rowCount = sheet.getLastRowNum();
-            DataFormatter fmt = new DataFormatter();
-            for (int i = 0; i <= rowCount; i++) {
-                Row row = sheet.getRow(i);
-                if (row == null) {
-                    continue;
-                }
-                int columnCount = row.getLastCellNum();
-                String parentKey, keyValue = null;
-                boolean booleanValue;
-                for (int j = 0; j < columnCount; j++) {
-                    Cell cell = row.getCell(j, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+            rowCount = sheet.getPhysicalNumberOfRows();
+            rowIndex = 0;
+            colIndex = 0;
+            JSONObject jsonData = generateJSONObject(sheet);
+            return jsonData;
+        } catch (FileNotFoundException ex) {
+            log.error(ex.getMessage());
+        } catch (IOException ex) {
+            log.error(ex.getMessage());
+        }
+        return new JSONObject();
+    }
+
+    JSONArray generateJSONArray(Sheet sheet) {
+        return generateJSONArray(sheet, false);
+    }
+
+    JSONArray generateJSONArray(Sheet sheet, boolean jsonObjectArray) {
+        JSONArray jsonData = new JSONArray();
+        Row row;
+        Object valueObj = "";
+        if (jsonObjectArray) {
+            while (forJSONArray) {
+                jsonData.put(generateJSONObject(sheet));
+                rowIndex++;
+            }
+            return jsonData;
+        }
+        rowLoop:
+        while (rowIndex <= rowCount) {
+            row = sheet.getRow(rowIndex);
+            if (row != null) {
+                int columnCount = sheet.getRow(rowIndex).getLastCellNum();
+                colLoop:
+                for (int columnIndex = colIndex; columnIndex < columnCount; columnIndex++) {
+                    Cell cell = row.getCell(columnIndex, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
                     if (cell == null) {
                         continue;
                     }
+                    log.debug(rowIndex + ":" + columnIndex);
                     CellType cellType = cell.getCellType();
-                    parentKey = PARENT_KEYS.isEmpty() ? null : PARENT_KEYS.peek();
                     switch (cellType) {
-                        case STRING:
-                            if (keyValue == null) {
-                                keyValue = cell.getStringCellValue();
-                                if ("}".equals(keyValue) || "}]".equals(keyValue) || "]".equals(keyValue)) {
-                                    if (!PARENT_KEYS.isEmpty()) {
-                                        PARENT_KEYS.pop();
-                                    }
-                                    if (!PARENT_TYPES.isEmpty()) {
-                                        PARENT_TYPES.pop();
-                                    }
-                                    booleanRowIndex = 0;
-                                    break;
-                                }
-                                cell = row.getCell(j + 1);
-                                if (cell == null) {
-                                    JSONDataType parentType = setParentType();
-                                    if (null != parentType) {
-                                        switch (parentType) {
-                                            case ARRAY_VALUE:
-                                                KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
-                                                        JSONDataType.VALUE, JSONValueType.ARRAY,
-                                                        keyValue, keyValue, parentKey, setParentType()));
-                                                break;
-                                            case ARRAY_OBJECT:
-                                                KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
-                                                        JSONDataType.VALUE, JSONValueType.ARRAY,
-                                                        "Dummy", keyValue, parentKey, setParentType()));
-                                                break;
-                                            case OBJECT:
-                                                KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
-                                                        JSONDataType.VALUE, JSONValueType.STRING,
-                                                        "Dummy", keyValue, parentKey, setParentType()));
-                                                break;
-                                        }
-                                    } else {
-                                        KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
-                                                JSONDataType.VALUE, JSONValueType.STRING,
-                                                "Dummy", keyValue, parentKey, setParentType()));
-                                    }
-                                } else {
-                                    cellType = cell.getCellType();
-                                    if (cellType == CellType.STRING) {
-                                        collectStringValue(cell, keyValue, parentKey);
-                                    }
-                                }
+                        case STRING: {
+                            String value = cell.getStringCellValue().trim();
+                            if (checkLineIsComment(value)) {
+                                break colLoop;
                             }
-                            break;
-                        case BOOLEAN:
-                            booleanValue = cell.getBooleanCellValue();
-                            if (keyValue == null) {
-                                keyValue = parentKey;
-                                KEY_MAP.put(getKeyValue(KEY_MAP, keyValue, booleanRowIndex), new JSONData(
-                                        JSONDataType.VALUE, JSONValueType.BOOLEAN,
-                                        booleanValue, keyValue, parentKey, setParentType()));
-                                booleanRowIndex++;
+                            if ("}".equals(value)) {
+                                if (!stack.isEmpty() && "{".equals(stack.peek())) {
+                                    stack.pop();
+                                }
+
+                                break rowLoop;
+                            } else if ("},".equals(value)) {
+                                if (!stack.isEmpty() && "{".equals(stack.peek())) {
+                                    stack.pop();
+                                }
+                                break colLoop;
+                            } else if ("},{".equals(value)) {
+                                if (!stack.isEmpty() && "{".equals(stack.peek())) {
+                                    stack.pop();
+                                    stack.push("{");
+                                }
+                                break colLoop;
+                            } else if ("]".equals(value)) {
+                                if (!stack.isEmpty() && "[".equals(stack.peek())) {
+                                    stack.pop();
+                                }
+                                break rowLoop;
+                            } else if ("}]".equals(value)) {
+                                if (!stack.isEmpty() && "{".equals(stack.peek())) {
+                                    stack.pop();
+                                }
+                                if (!stack.isEmpty() && "[".equals(stack.peek())) {
+                                    stack.pop();
+                                }
+                                break rowLoop;
+                            }
+                            if (stack.isEmpty()) {
+                                break colLoop;
+                            }
+                            log.debug(value);
+                            if ("{".equals(value)) {
+                                stack.push(value);
+                                rowIndex++;
+                                jsonData.put(generateJSONObject(sheet));
+                                break colLoop;
+                            } else if ("[".equals(value)) {
+                                stack.push(value);
+                                rowIndex++;
+                                jsonData.put(generateJSONArray(sheet));
+                                break colLoop;
+                            } else if ("[{".equals(value)) {
+                                stack.push("[");
+                                stack.push("{");
+                                rowIndex++;
+                                jsonData.put(generateJSONArray(sheet, true));
+                                break colLoop;
                             } else {
-                                KEY_MAP.put(getKeyValue(KEY_MAP, keyValue, booleanRowIndex), new JSONData(
-                                        JSONDataType.VALUE, JSONValueType.BOOLEAN,
-                                        booleanValue, keyValue, parentKey, setParentType()));
-                                booleanRowIndex++;
+                                valueObj = value;
                             }
                             break;
-                        case NUMERIC:
-                            String strData = fmt.formatCellValue(cell);
-                            collectNumericData(strData, keyValue, parentKey, cell);
+                        }
+                        case BOOLEAN: {
+                            valueObj = cell.getBooleanCellValue();
+                            log.debug(valueObj);
                             break;
-                        default:
+                        }
+                        case NUMERIC: {
+                            valueObj = cell.getNumericCellValue();
+                            log.debug(valueObj);
                             break;
+                        }
+                    }
+                    jsonData.put(valueObj);
+                }
+            }
+            rowIndex++;
+        }
+
+        return jsonData;
+    }
+
+    private static boolean checkLineIsComment(String value) {
+        return value.startsWith("//")
+                || value.startsWith("##")
+                || value.startsWith("#");
+    }
+
+    JSONObject generateJSONObject(Sheet sheet) {
+        JSONObject jsonData = new JSONObject();
+        setMapAsLinkedListMap(jsonData);
+        Row row;
+        String keyStr;
+        Object valueObj = "";
+        boolean firstRow = true;
+
+        rowLoop:
+        while (rowIndex <= rowCount) {
+            row = sheet.getRow(rowIndex);
+            if (row != null) {
+                int columnCount = sheet.getRow(rowIndex).getLastCellNum();
+                colLoop:
+                for (int columnIndex = colIndex; columnIndex < columnCount; columnIndex++) {
+                    Cell cell = row.getCell(columnIndex, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+                    if (cell == null) {
+                        continue;
+                    }
+                    log.debug(rowIndex + ":" + columnIndex);
+                    CellType cellType = cell.getCellType();
+                    switch (cellType) {
+                        case STRING: {
+                            keyStr = cell.getStringCellValue();
+                            log.debug(keyStr);
+                            if (checkLineIsComment(keyStr)) {
+                                break colLoop;
+                            }
+                            if ("{".equals(keyStr)) {
+                                stack.push(keyStr);
+                                break colLoop;
+                            } else if ("[".equals(keyStr)) {
+                                stack.add(keyStr);
+                                break colLoop;
+                            } else if ("}".equals(keyStr)) {
+                                columnIndex--;
+                                if (!stack.isEmpty() && "{".equals(stack.peek())) {
+                                    stack.pop();
+                                }
+                                break rowLoop;
+                            } else if ("]".equals(keyStr)) {
+                                columnIndex--;
+                                if (!stack.isEmpty() && "[".equals(stack.peek())) {
+                                    stack.pop();
+                                }
+                                break colLoop;
+                            } else if ("}]".equals(keyStr)) {
+                                columnIndex--;
+                                if (!stack.isEmpty() && "{".equals(stack.peek())) {
+                                    stack.pop();
+                                }
+                                if (!stack.isEmpty() && "[".equals(stack.peek())) {
+                                    stack.pop();
+                                }
+                                forJSONArray = false;
+                                break rowLoop;
+                            }
+                            if (stack.isEmpty()) {
+                                break colLoop;
+                            }
+                            cell = row.getCell(columnIndex + 1, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+                            if (cell == null) {
+                                valueObj = "";
+                            } else if (null != cell.getCellType()) {
+                                log.debug(rowIndex + ":" + (columnIndex + 1));
+                                switch (cell.getCellType()) {
+                                    case STRING:
+                                        String value = cell.getStringCellValue().trim();
+                                        log.debug(value);
+                                        if (checkLineIsComment(value)) {
+                                            break colLoop;
+                                        }
+                                        if ("{".equals(value)) {
+                                            stack.push(value);
+                                            rowIndex++;
+                                            jsonData.put(keyStr, generateJSONObject(sheet));
+                                            break colLoop;
+                                        } else if ("[".equals(value)) {
+                                            forJSONArray = true;
+                                            stack.push(value);
+                                            rowIndex++;
+                                            jsonData.put(keyStr, generateJSONArray(sheet));
+                                            break colLoop;
+                                        } else if ("[{".equals(value)) {
+                                            forJSONArray = true;
+                                            stack.push("[");
+                                            stack.push("{");
+                                            rowIndex++;
+                                            jsonData.put(keyStr, generateJSONArray(sheet, true));
+                                            rowIndex--;
+                                            break colLoop;
+                                        } else if ("}".equals(value)
+                                                || "},".equals(value)
+                                                || "} ,".equals(value)) {
+                                            if (stack.isEmpty() && "{".equals(stack.peek())) {
+                                                stack.pop();
+                                            }
+                                            break rowLoop;
+                                        } else if ("]".equals(value)) {
+                                            if (stack.isEmpty() && "[".equals(stack.peek())) {
+                                                stack.pop();
+                                            }
+                                            break rowLoop;
+                                        } else {
+                                            valueObj = value;
+                                        }
+                                        break;
+                                    case BOOLEAN:
+                                        valueObj = cell.getBooleanCellValue();
+                                        log.debug(valueObj);
+                                        break;
+                                    case NUMERIC:
+                                        valueObj = cell.getNumericCellValue();
+                                        log.debug(valueObj);
+                                        break;
+                                    default:
+                                        valueObj = "";
+                                        break;
+                                }
+                            }
+                            log.debug(cell == null ? "BLANK" : cell.getCellType());
+                            jsonData.put(keyStr, valueObj);
+                            break colLoop;
+                        }
                     }
                 }
             }
-        } catch (FileNotFoundException ex) {
-            Logger.getLogger(ExcelToJSON.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IOException ex) {
-            Logger.getLogger(ExcelToJSON.class.getName()).log(Level.SEVERE, null, ex);
+            rowIndex++;
         }
+        return jsonData;
     }
 
-    private static String getKeyValue(Map<String, JSONData> KEY_MAP, String keyValue) {
-        String key = keyValue;
-        while (KEY_MAP.containsKey(key)) {
-            key = key + "a";
-        }
-        return key;
-    }
-
-    private static String getKeyValue(Map<String, JSONData> KEY_MAP, Number keyValue, String defaultValue) {
-        String keyValueStr = keyValue == null ? defaultValue : "" + keyValue;
-        String key = keyValueStr;
-        while (KEY_MAP.containsKey(key)) {
-            key = key + "a";
-        }
-        return key;
-    }
-
-    private static String getKeyValue(Map<String, JSONData> KEY_MAP, String keyValue, int index) {
-        String key = keyValue + ":" + index;
-        while (KEY_MAP.containsKey(key)) {
-            key = key + "a";
-        }
-        return key;
-    }
-
-    private JSONDataType setParentType() {
-        return PARENT_TYPES.isEmpty() ? null : PARENT_TYPES.peek();
-    }
-
-    private void collectNumericData(String strData, String keyValue, String parentKey, Cell cell) {
-        int intValue;
-        long longValue;
-        double doubleValue;
+    private void setMapAsLinkedListMap(JSONObject json) {
         try {
-            intValue = Integer.parseInt(strData);
-            KEY_MAP.put(getKeyValue(KEY_MAP, intValue, strData), new JSONData(
-                    JSONDataType.VALUE, JSONValueType.INTEGER,
-                    intValue, keyValue, parentKey, setParentType()));
-        } catch (NumberFormatException e1) {
-            try {
-                longValue = Long.parseLong(strData);
-                KEY_MAP.put(getKeyValue(KEY_MAP, longValue, strData), new JSONData(
-                        JSONDataType.VALUE, JSONValueType.LONG,
-                        longValue, keyValue, parentKey, setParentType()));
-                if (HSSFDateUtil.isCellDateFormatted(cell)) {
-                    KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
-                            JSONDataType.VALUE, JSONValueType.DATE,
-                            longValue, keyValue, parentKey, setParentType()));
-                }
-            } catch (NumberFormatException e2) {
-                try {
-                    doubleValue = Double.parseDouble(strData);
-                    KEY_MAP.put(getKeyValue(KEY_MAP, doubleValue, strData), new JSONData(
-                            JSONDataType.VALUE, JSONValueType.DOUBLE,
-                            doubleValue, keyValue, parentKey, setParentType()));
-                } catch (NumberFormatException e3) {
-                    KEY_MAP.put(keyValue, new JSONData(
-                            JSONDataType.VALUE, JSONValueType.NONE,
-                            null, keyValue, parentKey, setParentType()));
-                }
-            }
+            Field map = json.getClass().getDeclaredField("map");
+            map.setAccessible(true);
+            map.set(json, new LinkedHashMap<>());
+            map.setAccessible(false);
+        } catch (IllegalAccessException | IllegalArgumentException | NoSuchFieldException | SecurityException e) {
+            log.error(e.getMessage());
         }
     }
-
-    private void collectStringValue(Cell cell, String keyValue, String parentKey) {
-        String stringValue = cell.getStringCellValue();
-        if (null == stringValue) {
-            KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
-                    JSONDataType.VALUE, JSONValueType.STRING,
-                    stringValue, keyValue, parentKey, setParentType()));
-        } else {
-            switch (stringValue) {
-                case "{":
-                    PARENT_KEYS.push(keyValue);
-                    KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
-                            JSONDataType.OBJECT, JSONValueType.OBJECT,
-                            null, keyValue, parentKey, setParentType()));
-                    PARENT_TYPES.push(JSONDataType.OBJECT);
-                    break;
-                case "[{":
-                    PARENT_KEYS.push(keyValue);
-                    KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
-                            JSONDataType.ARRAY_OBJECT, JSONValueType.ARRAY,
-                            null, keyValue, parentKey, setParentType()));
-                    PARENT_TYPES.push(JSONDataType.ARRAY_OBJECT);
-                    break;
-                case "[":
-                    booleanRowIndex = 0;
-                    PARENT_KEYS.push(keyValue);
-                    KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
-                            JSONDataType.ARRAY_VALUE, JSONValueType.ARRAY,
-                            null, keyValue, parentKey, setParentType()));
-                    PARENT_TYPES.push(JSONDataType.ARRAY_VALUE);
-                    break;
-                default:
-                    KEY_MAP.put(getKeyValue(KEY_MAP, keyValue), new JSONData(
-                            JSONDataType.VALUE, JSONValueType.STRING,
-                            stringValue, keyValue, parentKey, setParentType()));
-                    break;
-            }
-        }
-    }
-
-    public Map<String, JSONData> getJSONKeyValueMap() {
-        return KEY_MAP;
-    }
-
 }

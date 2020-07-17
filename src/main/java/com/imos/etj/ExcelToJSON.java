@@ -24,7 +24,7 @@ public class ExcelToJSON {
     private static String excelFileName;
     private static String excelSheetName;
     private static String jsonFileName;
-    private final static boolean PROD_MODE = false;
+    private final static boolean PROD_MODE = true;
 
     public static void main(String[] args) throws IOException {
         if (checkInputs(args)) {

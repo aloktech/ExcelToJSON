@@ -1,7 +1,7 @@
 # ExcelToJSON
+Check the link : https://excel-to-json-generator.herokuapp.com/ to generate JSON from Excel online<br/><br/>
 
-Its a java tool to generate a JSON file from Excel data.
-
+To generate a JSON file from Excel file in local system.
 - Install JDK 8/higher or check JDK 8/higher is installed
 - Download the jar file **ExcelToJSON.jar** to a folder
 - In the console enter: **java -jar ExcelToJSON.jar**, and press enter, then you will see <br/>
